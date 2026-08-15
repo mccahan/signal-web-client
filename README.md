@@ -49,6 +49,46 @@ keep your history across upgrades.
 `docker-compose.yml` also contains a commented-out `signal-cli-rest-api` service
 if you'd rather run the whole stack together.
 
+### Prebuilt images (NAS, Portainer, anywhere)
+
+Every push to `main` publishes a multi-architecture image to GitHub Container
+Registry, so a NAS can pull it without building anything:
+
+```
+ghcr.io/mccahan/signal-web-client:latest
+```
+
+`linux/amd64` (Synology x86, most QNAP, Intel NUC) and `linux/arm64` (ARM
+Synology models, Raspberry Pi) are both included; Docker picks the right one.
+Tags: `latest` from `main`, `sha-<short>` per commit, and `1.2.3` / `1.2` when
+you push a `v*` git tag.
+
+**The package is private until you make it public.** After the first successful
+workflow run, open the package page → *Package settings* → *Change visibility* →
+**Public**. Without this the NAS gets `denied` / `unauthorized` on pull, and
+would need a personal access token with `read:packages` instead.
+
+`docker-compose.nas.yml` is a pull-only compose file you can paste straight into
+Synology Container Manager or Portainer:
+
+```bash
+docker compose -f docker-compose.nas.yml up -d
+```
+
+Or by hand:
+
+```bash
+docker run -d --name signal-web-client --restart unless-stopped \
+  -p 8080:8080 \
+  -e SIGNAL_API_URL=http://10.0.1.197:8095 \
+  -e AUTH_PASSWORD=change-me \
+  -v signal-web-data:/data \
+  ghcr.io/mccahan/signal-web-client:latest
+```
+
+Keep `/data` on a volume — it holds the message history, cached media and
+backups, and the history cannot be re-fetched from Signal if you lose it.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -159,10 +199,13 @@ server/
   outbound.js    sending, reactions, read receipts, typing
   routes/api.js  REST API and the media/avatar proxy
   backup.js      periodic consistent SQLite snapshots
+  sessions.js    revocable browser logins
 public/
   js/app.js      UI: conversation list, thread, composer
   js/format.js   names, timestamps, mentions and rich-text rendering
   sw.js          service worker (shell only — never caches messages)
+.github/workflows/
+  docker-publish.yml   multi-arch image build -> ghcr.io
 ```
 
 ## Licence

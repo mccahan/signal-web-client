@@ -1,0 +1,25 @@
+# Pull-only compose file for a NAS — no source checkout or build needed.
+#
+#   docker compose -f docker-compose.nas.yml up -d
+#
+# Synology Container Manager / Portainer users can paste this straight in.
+services:
+  signal-web-client:
+    image: ghcr.io/mccahan/signal-web-client:latest
+    container_name: signal-web-client
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Your existing signal-cli-rest-api instance.
+      SIGNAL_API_URL: http://10.0.1.197:8095
+      # Strongly recommended: this app can read and send all your messages.
+      AUTH_PASSWORD: change-me
+      # Set true if you put a TLS reverse proxy in front.
+      SECURE_COOKIE: "false"
+    volumes:
+      # Message history, cached media and backups. Keep this.
+      - signal-web-data:/data
+
+volumes:
+  signal-web-data:

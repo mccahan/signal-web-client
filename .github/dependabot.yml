@@ -9,6 +9,13 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Wait a week before proposing a brand-new release. The npm supply-chain
+    # attacks that matter here follow one shape: publish a malicious version,
+    # have it pulled in automatically within hours, get unpublished once it is
+    # noticed. A cooldown means those versions are withdrawn before this repo
+    # ever sees a PR for them, at the cost of applying real fixes a week later.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     # Two direct dependencies and ~70 packages in total, so a single batched PR
     # for routine updates is easier to review than a stream of individual ones.
@@ -29,4 +36,6 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     labels: ['dependencies', 'ci']

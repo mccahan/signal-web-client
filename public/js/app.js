@@ -1522,5 +1522,11 @@ function requestNotificationPermission() {
 }
 
 boot().catch((err) => {
-  document.body.innerHTML = `<pre style="padding:24px;color:#c00">Failed to start: ${err.message}</pre>`;
+  // Built rather than interpolated into innerHTML: err.message can carry text
+  // that started life on the server (an API error body is passed through
+  // verbatim), and the boot failure screen is the one place that would render
+  // it as markup. Nothing else in this app parses HTML it did not author.
+  const pre = el('pre', null, `Failed to start: ${err.message}`);
+  pre.style.cssText = 'padding:24px;color:#c00';
+  document.body.replaceChildren(pre);
 });

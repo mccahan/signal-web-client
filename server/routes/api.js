@@ -36,6 +36,8 @@ import {
 } from '../outbound.js';
 import { cacheAttachment } from '../media.js';
 import { runBackup, backupState } from '../backup.js';
+import { migrationStatus } from '../migrate.js';
+import { db } from '../db.js';
 import {
   authEnabled,
   checkPassword,
@@ -205,6 +207,9 @@ function disconnectSockets(match) {
     }
   }
 }
+
+/** Which schema version this database is at, and anything outstanding. */
+router.get('/migrations', (req, res) => res.json(migrationStatus(db)));
 
 router.get('/backups', (req, res) => res.json({ ...backupState, dir: config.backupDir }));
 

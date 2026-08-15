@@ -193,6 +193,11 @@ can't be established.
   written under a temporary name and renamed into place, and each is
   integrity-checked before it is published. `POST /api/backups` takes one
   immediately; `GET /api/backups` reports the last result.
+- **Upgrades migrate the schema automatically.** Numbered migrations in
+  `server/migrations/` are applied at startup, one transaction each, and are
+  recorded so they run once. An existing database is snapshotted to the backups
+  directory beforehand, and a failed migration rolls back and stops the server
+  rather than leaving it half-applied. `GET /api/migrations` shows the version.
 - **History starts when this app does.** It can only store what it receives from
   the moment it first runs; there's no backfill of older Signal history.
 
@@ -208,6 +213,8 @@ server/
   outbound.js    sending, reactions, read receipts, typing
   routes/api.js  REST API and the media/avatar proxy
   backup.js      periodic consistent SQLite snapshots
+  migrate.js     schema migration runner
+  migrations/    numbered schema migrations
   sessions.js    revocable browser logins
 public/
   js/app.js      UI: conversation list, thread, composer

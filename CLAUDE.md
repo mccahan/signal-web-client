@@ -124,6 +124,20 @@ type `self`.
 those coincide; in a group they do not, which is why `markRead` sends one
 receipt per sender.
 
+## Schema changes
+
+`db.js` does not create tables. `server/migrations/` holds numbered migrations
+that `migrate.js` applies at database-open time, before `store.js` prepares its
+~46 module-scope statements — which is why `db.js` uses **top-level await**.
+Removing that await would let statement preparation race the schema.
+
+Add a change as the next-numbered `.sql` or `.mjs` file (see
+`server/migrations/README.md`); never edit an applied one, since its checksum is
+recorded and drift is reported at boot. Migrations run one transaction each and
+abort the whole run on failure — the server refuses to start rather than serve
+from a half-migrated database. An existing database is snapshotted to the
+backups directory first. `GET /api/migrations` reports the current version.
+
 ## `node:sqlite` gotchas
 
 - Double-quoted strings are parsed as **identifiers**. `WHERE x != ""` raises

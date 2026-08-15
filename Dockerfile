@@ -15,26 +15,6 @@ RUN npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit 
 # Stage an empty directory with the right ownership and copy it across.
 RUN mkdir -p /empty-data && chown 65532:65532 /empty-data
 
-# ---------------------------------------------------------------------------
-# Runtime — Chainguard.
-#
-# Minimal, non-root (uid 65532), and maintained at zero known CVEs. Measured
-# against the alternatives for this app:
-#
-#   node:24-alpine       1C 6H 9M   240 pkgs   node 24.19.0
-#   distroless nodejs24  0C 2H 5M    86 pkgs   node 24.14.0  (runtime lags)
-#   chainguard node      0C 0H 0M              node 26.7.0
-#
-# The trade-off: the free tier publishes only a moving `:latest`, so a future
-# Node major arrives unattended. This app's entire storage layer rests on
-# `node:sqlite`, which is still experimental and may change across majors, so
-# the CI workflow boots the built image and exercises node:sqlite and the HTTP
-# surface before publishing. A breaking bump fails the build rather than the
-# deployment.
-#
-# There are no native modules to compile, which is what makes a minimal runtime
-# viable at all.
-# ---------------------------------------------------------------------------
 FROM cgr.dev/chainguard/node:latest
 
 ENV NODE_ENV=production \

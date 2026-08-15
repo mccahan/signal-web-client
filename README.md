@@ -203,6 +203,47 @@ can't be established.
 - **History starts when this app does.** It can only store what it receives from
   the moment it first runs; there's no backfill of older Signal history.
 
+## Staying patched
+
+Security updates arrive on three layers, and each needs a different mechanism:
+
+| Layer | Kept current by | How often |
+| --- | --- | --- |
+| Runtime base image (Node, OS packages) | Scheduled rebuild in CI | Weekly, Mondays 06:00 UTC |
+| npm dependencies | Dependabot pull requests | Weekly |
+| GitHub Actions used by the workflow | Dependabot pull requests | Weekly |
+
+The scheduled rebuild matters more than it looks. The image is built on
+Chainguard's Node base, whose free tier publishes only `:latest` — a moving
+tag. Nothing in the image changes until it is rebuilt, so without a schedule it
+would stay frozen on whatever the base was the last time you pushed a commit,
+however many fixes had landed upstream since. The build passes `pull: true` so
+the base tag is re-resolved rather than served from cache.
+
+Rebuilding automatically is only safe because something checks the result:
+`scripts/smoke-test.sh` boots the built image and verifies `node:sqlite`,
+non-root execution, the auth gate and a writable `/data` before anything is
+published. Pull requests run that same smoke test, so a Dependabot bump arrives
+with real checks instead of none.
+
+Every build is also scanned with Trivy. Results go to the repository's Security
+tab, including findings that have no fix yet; the build itself fails only on
+*critical* findings that a rebuild could actually fix, so one unpatchable CVE
+can't block every later security update from shipping.
+
+Two things this does **not** do for you:
+
+- **Nothing pulls the new image for you.** A rebuilt `:latest` sitting in GHCR
+  changes nothing until your NAS pulls it. Re-pull on a schedule, or run
+  something like Watchtower against the container.
+- **Major version bumps are not automatic.** Dependabot batches minor and patch
+  updates into one PR but raises majors separately, because the smoke test only
+  proves the app boots and serves — it would not catch, say, Express 5's
+  changes to `req.query` parsing, which `routes/api.js` explicitly guards
+  against for the `authorId` parameter.
+
+`npm audit --omit=dev` gives you the same dependency picture locally.
+
 ## Project layout
 
 ```

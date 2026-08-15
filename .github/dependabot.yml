@@ -1,0 +1,32 @@
+version: 2
+
+updates:
+  # The npm tree is the one layer a base-image rebuild cannot fix: the Dockerfile
+  # runs `npm ci`, which installs exactly what package-lock.json pins. Nothing
+  # here moves until the lockfile does, so this is what moves it.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Two direct dependencies and ~70 packages in total, so a single batched PR
+    # for routine updates is easier to review than a stream of individual ones.
+    groups:
+      production:
+        patterns: ['*']
+        update-types: [minor, patch]
+    # Majors stay separate and deliberate. Express 5 is already available and is
+    # a breaking change — among other things it alters req.query parsing, which
+    # routes/api.js explicitly guards against for the `authorId` parameter. That
+    # is a change to read, not to rubber-stamp.
+    labels: ['dependencies']
+
+  # Keeps the workflow's own actions current — they run with a token that can
+  # publish to GHCR, so they are part of the supply chain, not just plumbing.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: ['dependencies', 'ci']

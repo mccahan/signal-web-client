@@ -4,6 +4,16 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  # Dependency PRs need to be gated by the same smoke test that gates a push,
+  # or they arrive with no checks and get merged on faith. This builds and
+  # tests but never publishes — see the `if` on the push step.
+  pull_request:
+    branches: [main]
+  # The runtime base is a moving tag that Chainguard rebuilds constantly, and a
+  # rebuild is the only way its fixes reach this image. Without this the image
+  # silently freezes at whatever the base happened to be on the last push.
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 env:
@@ -18,6 +28,8 @@ jobs:
       # Required to push to GHCR with the automatic GITHUB_TOKEN — no secrets
       # to create or rotate.
       packages: write
+      # Lets the vulnerability scan report into the Security tab.
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +41,9 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
+        # A pull request never publishes, and a Dependabot PR gets a read-only
+        # token that cannot log in to push anyway.
+        if: github.event_name != 'pull_request'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -44,6 +59,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
+            # A scheduled rebuild reuses the commit sha, so date-stamp it too —
+            # otherwise there is no way to name, or roll back to, the image
+            # built against a particular day's base.
+            type=schedule,pattern={{date 'YYYYMMDD'}}
 
       # The runtime base is a moving tag, so prove the built image still works
       # before publishing it. Built for the runner's own architecture and loaded
@@ -56,13 +75,50 @@ jobs:
           tags: signal-web-client:smoke
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Re-resolve the base tag instead of trusting anything cached. On a
+          # scheduled run, picking up a new base is the entire point.
+          pull: true
           provenance: false
           sbom: false
 
       - name: Smoke test
         run: ./scripts/smoke-test.sh signal-web-client:smoke
 
+      # Report everything into the Security tab, including findings with no fix
+      # available yet — those are worth knowing about even though no rebuild can
+      # clear them.
+      - name: Scan for vulnerabilities
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: signal-web-client:smoke
+          scanners: vuln
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload scan results
+        uses: github/codeql-action/upload-sarif@v3
+        # Dependabot's restricted token cannot write security events, and a PR
+        # is gated by the step below regardless.
+        if: github.event_name != 'pull_request'
+        with:
+          sarif_file: trivy.sarif
+
+      # Fail only on critical findings that a rebuild could actually fix.
+      # Blocking on unfixable ones would mean a single unpatched CVE stops every
+      # later security update from shipping, which is the opposite of the point.
+      - name: Fail on fixable critical vulnerabilities
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: signal-web-client:smoke
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
       - name: Build and push
+        # Everything above runs on a pull request; only this is withheld.
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -72,6 +128,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          pull: true
           # Attestations add "unknown/unknown" entries to the manifest list that
           # some NAS Docker UIs (older Synology/QNAP builds) fail to parse.
           provenance: false

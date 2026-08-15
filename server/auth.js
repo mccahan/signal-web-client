@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { resolveSessionSecret } from './db.js';
+import { isSessionValid, touchSession } from './sessions.js';
 
 const SECRET = resolveSessionSecret();
 export const COOKIE = 'swc_session';
@@ -12,26 +13,33 @@ function sign(value) {
   return crypto.createHmac('sha256', SECRET).update(value).digest('base64url');
 }
 
-export function issueToken() {
-  const payload = b64(JSON.stringify({ exp: Date.now() + config.sessionDays * 864e5 }));
+/** Mint a cookie value for a freshly created session row. */
+export function issueToken(sessionId) {
+  const payload = b64(JSON.stringify({ sid: sessionId }));
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifyToken(token) {
-  if (!token || typeof token !== 'string') return false;
+/**
+ * Return the session id a cookie vouches for, or null.
+ *
+ * The signature proves we issued it; the sessions table decides whether it is
+ * still allowed to be used, which is what makes revocation possible.
+ */
+export function sessionIdFromToken(token) {
+  if (!token || typeof token !== 'string') return null;
   const [payload, mac] = token.split('.');
-  if (!payload || !mac) return false;
+  if (!payload || !mac) return null;
 
   const expected = sign(payload);
   // Constant-time compare; lengths must match first or timingSafeEqual throws.
-  if (mac.length !== expected.length) return false;
-  if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return false;
+  if (mac.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
 
   try {
-    const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return typeof exp === 'number' && exp > Date.now();
+    const { sid } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return typeof sid === 'string' && sid ? sid : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -69,14 +77,37 @@ export function cookieHeader(token) {
 
 export const clearCookieHeader = () => `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 
+/** The live session behind a request, or null. */
+export function sessionFor(req) {
+  const cookies = parseCookies(req.headers?.cookie || '');
+  const sid = sessionIdFromToken(cookies[COOKIE]);
+  if (!sid || !isSessionValid(sid)) return null;
+  return sid;
+}
+
 export function isAuthed(req) {
   if (!authEnabled) return true;
-  const cookies = parseCookies(req.headers?.cookie || '');
-  return verifyToken(cookies[COOKIE]);
+  return !!sessionFor(req);
 }
+
+export const clientIp = (req) =>
+  (req.headers?.['x-forwarded-for']?.split(',')[0] || '').trim() ||
+  req.socket?.remoteAddress ||
+  '';
 
 /** Express guard for everything under /api except the login handshake. */
 export function requireAuth(req, res, next) {
-  if (isAuthed(req)) return next();
-  res.status(401).json({ error: 'authentication required' });
+  if (!authEnabled) return next();
+
+  const sid = sessionFor(req);
+  if (!sid) {
+    // Clear a cookie that is signed but no longer usable (revoked or expired),
+    // so the browser stops presenting it and shows the login screen.
+    res.setHeader('Set-Cookie', clearCookieHeader());
+    return res.status(401).json({ error: 'authentication required' });
+  }
+
+  req.sessionId = sid;
+  touchSession(sid, { ip: clientIp(req) });
+  next();
 }

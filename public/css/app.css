@@ -632,7 +632,53 @@ button, input, textarea { font: inherit; color: inherit; }
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--bg); color: var(--ink);
 }
+.dialog__card--wide { width: min(520px, calc(100vw - 32px)); }
 .dialog__hint { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
+
+.sidebar__foot-actions { display: flex; gap: 12px; flex: 0 0 auto; }
+
+/* --- session list -------------------------------------------------------- */
+
+.sessions {
+  margin-top: 12px;
+  max-height: min(50vh, 380px);
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.session {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+.session--current { border-color: var(--accent); }
+
+.session__dot {
+  flex: 0 0 auto;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-3);
+}
+.session__dot--live { background: var(--ok); }
+
+.session__body { flex: 1; min-width: 0; }
+.session__name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.session__tag {
+  font-size: 11px; font-weight: 600;
+  padding: 1px 6px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+}
+.session__meta { font-size: 12.5px; color: var(--ink-3); }
+
+.session__revoke {
+  flex: 0 0 auto;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--danger);
+  font-size: 12.5px; padding: 5px 12px; cursor: pointer;
+}
+.session__revoke:hover { background: var(--bg-sunken); }
+.session__revoke:disabled { opacity: .4; cursor: default; }
 .dialog__error { font-size: 13px; color: var(--danger); margin: 8px 0 0; min-height: 18px; }
 .dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 

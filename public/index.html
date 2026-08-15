@@ -58,7 +58,10 @@
 
     <footer class="sidebar__foot">
       <span id="account-label" class="muted"></span>
-      <button class="link-btn" id="btn-logout" hidden>Sign out</button>
+      <span class="sidebar__foot-actions">
+        <button class="link-btn" id="btn-sessions">Devices</button>
+        <button class="link-btn" id="btn-logout" hidden>Sign out</button>
+      </span>
     </footer>
   </aside>
 
@@ -143,6 +146,19 @@
       <button value="ok" class="btn btn--primary" id="new-chat-go">Start</button>
     </div>
   </form>
+</dialog>
+
+<!-- Browser sessions ------------------------------------------------------ -->
+<dialog id="sessions-dialog" class="dialog">
+  <div class="dialog__card dialog__card--wide">
+    <h2>Signed-in devices</h2>
+    <p class="dialog__hint" id="sessions-hint"></p>
+    <div class="sessions" id="sessions-list"></div>
+    <div class="dialog__actions">
+      <button class="btn" id="sessions-revoke-others" hidden>Sign out other devices</button>
+      <button class="btn btn--primary" id="sessions-close">Done</button>
+    </div>
+  </div>
 </dialog>
 
 <!-- Media lightbox ------------------------------------------------------- -->

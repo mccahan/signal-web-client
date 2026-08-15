@@ -10,6 +10,19 @@ class Bus extends EventEmitter {
     super();
     this.setMaxListeners(100);
     this.clientCount = 0;
+    // Live browser sockets. Held here rather than in index.js so the routes can
+    // report presence without importing the server (which imports the routes).
+    this.sockets = new Set();
+  }
+
+  /** Currently-connected browsers, for the sessions list. */
+  presence() {
+    return [...this.sockets].map((ws) => ({
+      sessionId: ws.sessionId || null,
+      userAgent: ws.userAgent || '',
+      ip: ws.ip || '',
+      connectedAt: ws.connectedAt || 0,
+    }));
   }
 
   publish(type, payload = {}) {

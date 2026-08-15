@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT
 );
 
+-- One row per browser login. The cookie carries only this row's id, so a
+-- session can be revoked without rotating the signing secret (which would sign
+-- everyone out).
+CREATE TABLE IF NOT EXISTS sessions (
+  id            TEXT PRIMARY KEY,
+  created_at    INTEGER NOT NULL,
+  last_seen_at  INTEGER NOT NULL,
+  expires_at    INTEGER NOT NULL,
+  user_agent    TEXT,
+  ip            TEXT,
+  label         TEXT,
+  revoked_at    INTEGER
+);
+CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
+
 -- One row per person we know about. Keyed by the stable Signal ACI (uuid) when
 -- we have one, otherwise by E.164. resolveContact() collapses the two.
 CREATE TABLE IF NOT EXISTS contacts (

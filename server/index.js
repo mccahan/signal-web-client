@@ -13,7 +13,8 @@ import { startReceiver, publicStatus } from './receiver.js';
 import { startRosterLoop, resolveSelfIdentity } from './roster.js';
 import { startBackupLoop } from './backup.js';
 import { setSelf, self, listConversations } from './store.js';
-import { isAuthed, authEnabled } from './auth.js';
+import { isAuthed, authEnabled, sessionFor, clientIp } from './auth.js';
+import { touchSession, startSessionPruneLoop } from './sessions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
@@ -64,7 +65,16 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Remember which login this socket belongs to, so the sessions list can say
+  // which devices are connected right now rather than merely known.
+  ws.sessionId = sessionFor(req) || null;
+  ws.userAgent = req.headers['user-agent'] || '';
+  ws.ip = clientIp(req);
+  ws.connectedAt = Date.now();
+  if (ws.sessionId) touchSession(ws.sessionId, { ip: ws.ip });
+
+  bus.sockets.add(ws);
   bus.clientCount = wss.clients.size;
   ws.isAlive = true;
   ws.on('pong', () => {
@@ -96,6 +106,7 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     unsubscribe();
+    bus.sockets.delete(ws);
     bus.clientCount = wss.clients.size;
   });
 
@@ -106,6 +117,7 @@ wss.on('connection', (ws) => {
 const heartbeat = setInterval(() => {
   for (const ws of wss.clients) {
     if (!ws.isAlive) {
+      bus.sockets.delete(ws);
       ws.terminate();
       continue;
     }
@@ -186,6 +198,7 @@ async function main() {
   // Independent of the Signal link: history is worth protecting even while the
   // upstream API is unreachable.
   startBackupLoop();
+  startSessionPruneLoop();
 
   connectSignal();
 }

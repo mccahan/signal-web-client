@@ -44,7 +44,17 @@ import {
   clearCookieHeader,
   requireAuth,
   isAuthed,
+  sessionFor,
+  clientIp,
 } from '../auth.js';
+import {
+  createSession,
+  listSessions,
+  revokeSession,
+  revokeAllExcept,
+  pruneSessions,
+  describeClient,
+} from '../sessions.js';
 
 export const router = express.Router();
 
@@ -61,11 +71,19 @@ router.post('/session', (req, res) => {
   if (!checkPassword(req.body?.password)) {
     return res.status(401).json({ error: 'Incorrect password' });
   }
-  res.setHeader('Set-Cookie', cookieHeader(issueToken()));
+  const sessionId = createSession({
+    userAgent: req.headers['user-agent'],
+    ip: clientIp(req),
+  });
+  res.setHeader('Set-Cookie', cookieHeader(issueToken(sessionId)));
   res.json({ authenticated: true });
 });
 
 router.delete('/session', (req, res) => {
+  // Signing out must invalidate the session server-side, not just drop the
+  // cookie — otherwise a copied cookie keeps working.
+  const sid = sessionFor(req);
+  if (sid) revokeSession(sid);
   res.setHeader('Set-Cookie', clearCookieHeader());
   res.json({ authenticated: false });
 });
@@ -90,6 +108,103 @@ router.get('/me', (req, res) => {
 });
 
 router.get('/status', (req, res) => res.json(publicStatus()));
+
+// --- browser sessions ------------------------------------------------------
+
+/**
+ * Logins known to the server, annotated with which are connected right now.
+ *
+ * With auth disabled there are no logins to track, so this reports the live
+ * connections alone rather than pretending otherwise.
+ */
+router.get('/sessions', (req, res) => {
+  const live = bus.presence();
+  const liveBySession = new Map();
+  for (const c of live) {
+    if (!c.sessionId) continue;
+    const entry = liveBySession.get(c.sessionId) || { count: 0, since: c.connectedAt };
+    entry.count++;
+    entry.since = Math.min(entry.since || c.connectedAt, c.connectedAt);
+    liveBySession.set(c.sessionId, entry);
+  }
+
+  if (!authEnabled) {
+    return res.json({
+      authRequired: false,
+      sessions: live.map((c, i) => ({
+        id: `live-${i}`,
+        label: describeClient(c.userAgent),
+        ip: c.ip,
+        createdAt: c.connectedAt,
+        lastSeenAt: Date.now(),
+        expiresAt: null,
+        connections: 1,
+        connected: true,
+        current: false,
+        revocable: false,
+      })),
+    });
+  }
+
+  const current = sessionFor(req);
+  const sessions = listSessions().map((s) => {
+    const liveInfo = liveBySession.get(s.id);
+    return {
+      id: s.id,
+      label: s.label || describeClient(s.user_agent),
+      ip: s.ip || '',
+      createdAt: s.created_at,
+      lastSeenAt: s.last_seen_at,
+      expiresAt: s.expires_at,
+      connections: liveInfo?.count || 0,
+      connected: !!liveInfo,
+      current: s.id === current,
+      revocable: true,
+    };
+  });
+
+  res.json({ authRequired: true, sessions });
+});
+
+/** Sign a specific device out. Revoking your own ends this session too. */
+router.delete('/sessions/:id', (req, res) => {
+  if (!authEnabled) return res.status(400).json({ error: 'Sessions require AUTH_PASSWORD' });
+
+  const id = String(req.params.id);
+  if (!revokeSession(id)) return res.status(404).json({ error: 'not found' });
+
+  disconnectSockets((ws) => ws.sessionId === id);
+
+  if (id === sessionFor(req)) res.setHeader('Set-Cookie', clearCookieHeader());
+  res.json({ revoked: id });
+});
+
+/** Sign out every other device, keeping this one. */
+router.post('/sessions/revoke-others', (req, res) => {
+  if (!authEnabled) return res.status(400).json({ error: 'Sessions require AUTH_PASSWORD' });
+
+  const current = sessionFor(req);
+  const count = revokeAllExcept(current);
+  disconnectSockets((ws) => ws.sessionId && ws.sessionId !== current);
+  pruneSessions();
+  res.json({ revoked: count });
+});
+
+/**
+ * Close sockets belonging to sessions that just lost access. Without this a
+ * revoked device keeps streaming messages over its already-open WebSocket,
+ * because authentication is only checked at upgrade time.
+ */
+function disconnectSockets(match) {
+  for (const ws of bus.sockets) {
+    if (!match(ws)) continue;
+    try {
+      ws.close(4001, 'session revoked');
+    } catch {
+      /* already closing */
+    }
+  }
+}
 
 router.get('/backups', (req, res) => res.json({ ...backupState, dir: config.backupDir }));
 

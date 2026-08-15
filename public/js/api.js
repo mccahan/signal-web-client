@@ -33,6 +33,9 @@ export const api = {
   logout: () => request('DELETE', '/api/session'),
 
   me: () => request('GET', '/api/me'),
+  sessions: () => request('GET', '/api/sessions'),
+  revokeSession: (id) => request('DELETE', `/api/sessions/${encodeURIComponent(id)}`),
+  revokeOtherSessions: () => request('POST', '/api/sessions/revoke-others', {}),
   conversations: (refresh) => request('GET', `/api/conversations${refresh ? '?refresh=1' : ''}`),
   messages: (id, { before, limit = 50 } = {}) => {
     const qs = new URLSearchParams({ limit: String(limit) });

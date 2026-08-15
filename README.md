@@ -14,7 +14,7 @@ and pushes new messages to open browsers over a WebSocket.
 - Message edits, remote deletes and disappearing-message notices are honoured
 - Installs to a phone home screen (PWA) with desktop notifications
 - Dark and light themes, single-pane on phones and two-pane on desktop
-- Optional password gate, since this app can read and send everything
+- Optional password gate, with a signed-in device list you can revoke from
 
 ## Quick start
 
@@ -60,6 +60,8 @@ if you'd rather run the whole stack together.
 | `AUTH_PASSWORD` | *(none)* | Shared password. Blank disables the login screen |
 | `SECURE_COOKIE` | `false` | Set `true` when served over HTTPS |
 | `SESSION_SECRET` | *(generated)* | Only needed to share sessions across replicas |
+| `SESSION_DAYS` | `30` | How long a login stays valid |
+| `SESSION_IDLE_DAYS` | `14` | Prune logins unused this long (`0` disables) |
 | `SEND_READ_RECEIPTS` | `true` | Tell senders when you open a conversation |
 | `SEND_TYPING_INDICATORS` | `true` | Broadcast your typing state |
 | `RECEIVE_TIMEOUT` | `1` | Poll window while a browser is connected (seconds) |
@@ -113,6 +115,11 @@ can't be established.
 - **Put it behind a password.** Anyone who can reach the port can read and send
   your messages. Set `AUTH_PASSWORD`, and use HTTPS (plus `SECURE_COOKIE=true`)
   if it's reachable from outside your LAN.
+- **Sessions are revocable.** Each login gets a row in the database and the
+  cookie carries only its id, so "Devices" in the sidebar footer can sign out a
+  single device — including closing its open WebSocket, since authentication is
+  otherwise only checked when the socket is opened. Expired, idle and
+  long-revoked rows are pruned every six hours.
 - **Notifications and home-screen install need a secure context.** Browsers only
   allow them on `https://` or `http://localhost`. Over plain HTTP to a LAN IP
   the app still works, but notifications won't fire — put it behind a TLS

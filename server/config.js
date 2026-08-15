@@ -24,6 +24,9 @@ export const config = {
   // Persisted to the DB on first boot if not supplied, so sessions survive restarts.
   sessionSecret: process.env.SESSION_SECRET || '',
   sessionDays: num(process.env.SESSION_DAYS, 30),
+  // Sessions unused for this long are pruned even if the cookie hasn't expired.
+  // 0 disables idle pruning.
+  sessionIdleDays: num(process.env.SESSION_IDLE_DAYS, 14),
   secureCookie: bool(process.env.SECURE_COOKIE, false),
 
   // Poll tuning (only used when the API server is in native/normal mode).

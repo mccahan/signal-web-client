@@ -852,6 +852,106 @@ async function toggleReaction(msg, emoji, remove) {
 }
 
 // ---------------------------------------------------------------------------
+// Signed-in devices
+// ---------------------------------------------------------------------------
+
+async function openSessions() {
+  const dialog = $('sessions-dialog');
+  const list = $('sessions-list');
+  list.textContent = '';
+  list.appendChild(el('p', 'muted', 'Loading…'));
+  if (!dialog.open) dialog.showModal();
+
+  let data;
+  try {
+    data = await api.sessions();
+  } catch (err) {
+    list.textContent = '';
+    list.appendChild(el('p', 'muted', `Could not load devices: ${err.message}`));
+    return;
+  }
+
+  $('sessions-hint').textContent = data.authRequired
+    ? 'Devices that have signed in with your password. Sign out any you don’t recognise.'
+    : 'No password is set, so there are no saved logins — this shows browsers connected right now.';
+
+  const others = data.sessions.filter((s) => s.revocable && !s.current);
+  $('sessions-revoke-others').hidden = others.length === 0;
+
+  list.textContent = '';
+  if (!data.sessions.length) {
+    list.appendChild(el('p', 'muted', 'No devices connected.'));
+    return;
+  }
+
+  for (const s of data.sessions) list.appendChild(renderSession(s));
+}
+
+function renderSession(s) {
+  const row = el('div', `session${s.current ? ' session--current' : ''}`);
+
+  const dot = el('span', `session__dot${s.connected ? ' session__dot--live' : ''}`);
+  dot.title = s.connected ? 'Connected now' : 'Not connected';
+  row.appendChild(dot);
+
+  const body = el('div', 'session__body');
+  const name = el('div', 'session__name');
+  name.appendChild(document.createTextNode(s.label));
+  if (s.current) name.appendChild(el('span', 'session__tag', 'This device'));
+  body.appendChild(name);
+
+  const bits = [];
+  if (s.connected) bits.push(s.connections > 1 ? `${s.connections} tabs open` : 'Connected now');
+  else bits.push(`Last active ${relativeTime(s.lastSeenAt)}`);
+  if (s.ip) bits.push(s.ip);
+  if (s.expiresAt) bits.push(`expires ${relativeTime(s.expiresAt)}`);
+  body.appendChild(el('div', 'session__meta', bits.join(' · ')));
+  row.appendChild(body);
+
+  if (s.revocable) {
+    const btn = el('button', 'session__revoke', s.current ? 'Sign out' : 'Revoke');
+    btn.type = 'button';
+    btn.addEventListener('click', async () => {
+      const warning = s.current
+        ? 'Sign out this device?'
+        : `Sign out “${s.label}”? It will need the password again.`;
+      if (!confirm(warning)) return;
+      btn.disabled = true;
+      try {
+        await api.revokeSession(s.id);
+        if (s.current) return location.reload();
+        toast('Device signed out');
+        openSessions();
+      } catch (err) {
+        btn.disabled = false;
+        toast(err.message);
+      }
+    });
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+/** "3 minutes ago" / "in 29 days" — good enough without a date library. */
+function relativeTime(ts) {
+  if (!ts) return 'unknown';
+  const diff = ts - Date.now();
+  const abs = Math.abs(diff);
+  const units = [
+    [60_000, 'minute', 1000],
+    [3_600_000, 'hour', 60_000],
+    [86_400_000, 'day', 3_600_000],
+    [Infinity, 'day', 86_400_000],
+  ];
+  if (abs < 60_000) return diff < 0 ? 'just now' : 'shortly';
+  const [, unit, divisor] = units.find(([limit]) => abs < limit) || units[units.length - 1];
+  const n = Math.round(abs / divisor);
+  const label = `${n} ${unit}${n === 1 ? '' : 's'}`;
+  return diff < 0 ? `${label} ago` : `in ${label}`;
+}
+
+// ---------------------------------------------------------------------------
 // Conversation menu
 // ---------------------------------------------------------------------------
 
@@ -1388,6 +1488,19 @@ function wireUi() {
     if (!$('lightbox').hidden) $('lightbox').hidden = true;
     else if (!$('sheet').hidden) closeSheet();
     else if (!$('thread-menu').hidden) closeThreadMenu();
+  });
+
+  $('btn-sessions').addEventListener('click', openSessions);
+  $('sessions-close').addEventListener('click', () => $('sessions-dialog').close());
+  $('sessions-revoke-others').addEventListener('click', async () => {
+    if (!confirm('Sign out every other device?')) return;
+    try {
+      const { revoked } = await api.revokeOtherSessions();
+      toast(revoked ? `Signed out ${revoked} device${revoked === 1 ? '' : 's'}` : 'No other devices');
+      openSessions();
+    } catch (err) {
+      toast(err.message);
+    }
   });
 
   $('btn-logout').addEventListener('click', async () => {

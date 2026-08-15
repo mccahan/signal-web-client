@@ -36,6 +36,7 @@ import {
 } from '../outbound.js';
 import { cacheAttachment } from '../media.js';
 import { runBackup, backupState } from '../backup.js';
+import { attachmentHeaders } from '../headers.js';
 import { migrationStatus } from '../migrate.js';
 import { db } from '../db.js';
 import {
@@ -478,6 +479,9 @@ router.get(
 function streamFile(res, filePath, contentType, filename, download) {
   res.setHeader('Content-Type', contentType || 'application/octet-stream');
   res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  // This Content-Type came from whoever sent the file, so the response is
+  // sandboxed into an opaque origin — see attachmentHeaders.
+  attachmentHeaders(res);
   if (download) {
     const name = (filename || path.basename(filePath)).replace(/["\\]/g, '');
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`);

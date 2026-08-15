@@ -201,6 +201,25 @@ CSS carries a global `[hidden] { display: none !important }` because the
 class-level `display` rules would otherwise beat the UA rule, and the UI toggles
 visibility with the `hidden` attribute throughout.
 
+`headers.js` sends a CSP with **no `'unsafe-inline'`**, which the front end can
+afford only because `index.html` has no inline `<script>`, no inline `<style>`
+and no `on*` attributes. Adding any one of them would force `'unsafe-inline'`
+back into `script-src` or `style-src` and undo most of the policy — build the
+node and attach a listener instead. Assigning `element.style.x` is CSSOM and
+stays fine; `setAttribute('style', …)` does not.
+
+Two directives are deliberately absent: `upgrade-insecure-requests` (the app is
+normally plain HTTP on a LAN, and it would rewrite every request to https) and
+`require-trusted-types-for` (the icon helper assigns static SVG via innerHTML).
+`connect-src 'self'` covers the WebSocket — verified in a browser, since
+getting it wrong kills live delivery silently rather than loudly.
+
+Attachment responses override the policy with `Content-Security-Policy:
+sandbox`, because their `Content-Type` comes from whoever sent the file and
+`/api/attachments/<id>` fetched directly would otherwise render someone else's
+markup as a same-origin document. The sandbox applies to navigation only, so
+`<img>` and `<video>` still load from those URLs.
+
 The service worker caches the app shell only — never messages or media, so that
 stale or deleted content is never resurrected.
 

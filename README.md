@@ -202,6 +202,13 @@ can't be established.
   rather than leaving it half-applied. `GET /api/migrations` shows the version.
 - **History starts when this app does.** It can only store what it receives from
   the moment it first runs; there's no backfill of older Signal history.
+- **Security headers are sent on every response.** A content security policy
+  with no `unsafe-inline`, plus `nosniff`, `DENY` framing, `no-referrer` and a
+  `Permissions-Policy` that turns off camera, microphone and location. HSTS is
+  sent only when `SECURE_COOKIE=true`, since that already means "this is served
+  over HTTPS" — deliberately without `includeSubDomains`, which on a LAN
+  hostname would force every sibling service to HTTPS too. Attachments are
+  served sandboxed, because their content type comes from whoever sent them.
 
 ## Staying patched
 

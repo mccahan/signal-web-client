@@ -14,6 +14,7 @@ import { startRosterLoop, resolveSelfIdentity } from './roster.js';
 import { startBackupLoop } from './backup.js';
 import { setSelf, self, listConversations } from './store.js';
 import { isAuthed, authEnabled, sessionFor, clientIp } from './auth.js';
+import { securityHeaders } from './headers.js';
 import { touchSession, startSessionPruneLoop } from './sessions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,10 @@ const publicDir = path.join(__dirname, '..', 'public');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', true);
+
+// Ahead of every route so it covers the API, the static shell and the SPA
+// fallback alike — a header added per-route is a header someone forgets.
+app.use(securityHeaders);
 
 // Base64 attachments inflate ~33%, so the JSON limit tracks the upload cap.
 app.use(express.json({ limit: Math.ceil(config.maxUploadBytes * 1.4) }));

@@ -87,6 +87,27 @@ inserts a `pending` row and publishes it before calling upstream, so the bubble
 appears over the WebSocket in milliseconds. The client does not draw its own
 provisional bubble.
 
+## Outbound rate limiting
+
+`throttle.js` holds a token bucket that `sendMessage`, `sendReaction` and
+`deleteForEveryone` each claim from. It is a backstop against a runaway client
+or a stuck retry loop, not an access control — `requireAuth` is what keeps
+strangers out. The thing at risk is the Signal *account*, which Signal will
+throttle or flag if it starts behaving like a spam source.
+
+Two properties are easy to break:
+
+- **The bucket is global, not per-session or per-IP.** Every signed-in browser
+  drives one upstream account, so keying it on the caller would let N devices
+  multiply the exact load it exists to bound.
+- **`claimSend` must run before the optimistic insert.** Everything after that
+  point has already published a bubble to every open browser; throttling later
+  would strand it on screen as a `pending` message that was never sent.
+
+Typing indicators and read receipts are deliberately exempt — the first is
+high-frequency by design, and the second is already bounded by
+`MAX_RECEIPTS_PER_READ` and runs below sends on the lane.
+
 ## Identity rules (the source of most subtle bugs)
 
 **Messages** are identified by `(conversation_id, ts, author_id)` — a UNIQUE

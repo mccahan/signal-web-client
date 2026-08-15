@@ -554,5 +554,8 @@ router.get(
 router.use((err, req, res, _next) => {
   const status = err.status || err.statusCode || 500;
   if (status >= 500) log.error(`${req.method} ${req.originalUrl}:`, err.message);
+  // Standard backoff hint for a throttled send — the browser shows the message
+  // text, but anything scripted against this API can read the header instead.
+  if (err.retryAfterSeconds) res.setHeader('Retry-After', String(err.retryAfterSeconds));
   res.status(status).json({ error: err.message || 'internal error' });
 });

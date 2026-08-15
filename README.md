@@ -116,6 +116,8 @@ backups, and the history cannot be re-fetched from Signal if you lose it.
 | `RECEIVE_TIMEOUT` | `1` | Poll window while a browser is connected (seconds) |
 | `IDLE_RECEIVE_TIMEOUT` | `5` | Poll window when nobody is connected |
 | `MAX_UPLOAD_BYTES` | `104857600` | Outgoing attachment cap |
+| `SEND_RATE_PER_MINUTE` | `30` | Sustained cap on outgoing messages (`0` disables) |
+| `SEND_BURST` | `15` | How many may go out back to back before that applies |
 | `BACKUP_ENABLED` | `true` | Periodic database snapshots |
 | `BACKUP_INTERVAL_HOURS` | `6` | How often to snapshot |
 | `BACKUP_KEEP` | `7` | Snapshots to retain |

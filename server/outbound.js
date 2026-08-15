@@ -7,6 +7,7 @@ import { api } from './signal-api.js';
 import { bus } from './bus.js';
 import { db } from './db.js';
 import { syncRoster } from './roster.js';
+import { claimSend } from './throttle.js';
 import {
   self,
   isSelf,
@@ -95,6 +96,17 @@ export async function sendMessage({
   let conv = getConversation(conversationId);
   if (!conv) throw Object.assign(new Error('unknown conversation'), { status: 404 });
 
+  if (!body.trim() && !attachments.length) {
+    throw Object.assign(new Error('nothing to send'), { status: 400 });
+  }
+
+  // Claim rate-limit capacity here: after the checks that cost nothing, and
+  // before the first thing that does. The roster refresh below is already an
+  // upstream call, and everything past it either writes to the database or
+  // publishes an optimistic bubble to every open browser — a message rejected
+  // any later than this would leave that bubble on screen unsent.
+  claimSend('message');
+
   // A group first seen in an envelope only has the base64 internal id, which
   // /v2/send won't accept. Pull the roster so we learn its "group.xxx" send id
   // instead of failing until the next scheduled sync.
@@ -107,10 +119,6 @@ export async function sendMessage({
 
   const recipient = recipientFor(conv);
   if (!recipient) throw Object.assign(new Error('conversation has no address'), { status: 400 });
-
-  if (!body.trim() && !attachments.length) {
-    throw Object.assign(new Error('nothing to send'), { status: 400 });
-  }
 
   // Save attachments first so the optimistic bubble can show them right away.
   const stored = [];
@@ -236,6 +244,10 @@ export async function sendReaction({ conversationId, targetTs, targetAuthorId, e
   const conv = getConversation(conversationId);
   if (!conv) throw Object.assign(new Error('unknown conversation'), { status: 404 });
 
+  // Before the optimistic setReaction below, for the same reason as in
+  // sendMessage: past that point browsers have already been told it happened.
+  claimSend('reaction');
+
   const recipient = recipientFor(conv);
   const targetContact = getContact(targetAuthorId);
   const targetAuthor =
@@ -303,6 +315,9 @@ export async function deleteForEveryone({ conversationId, ts }) {
 
   const recipient = recipientFor(conv);
   if (!recipient) throw Object.assign(new Error('conversation has no address'), { status: 400 });
+
+  // A retraction is itself a message to every recipient, so it counts.
+  claimSend('remote delete');
 
   await api.remoteDelete(self.number, { recipient, timestamp: ts });
 

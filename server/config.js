@@ -49,6 +49,13 @@ export const config = {
   // Max upload size for outgoing attachments (base64 inflates by ~33%).
   maxUploadBytes: num(process.env.MAX_UPLOAD_BYTES, 100 * 1024 * 1024),
 
+  // Ceiling on outbound messages, reactions and remote deletes, shared by every
+  // signed-in browser because they all drive one Signal account. Sized so a
+  // person never reaches it and a loop does. 0 disables the limit.
+  sendRatePerMinute: num(process.env.SEND_RATE_PER_MINUTE, 30),
+  // How many may go out back to back before the sustained rate applies.
+  sendBurst: num(process.env.SEND_BURST, 15),
+
   // How long to trust the cached contact/group roster before refreshing.
   rosterTtlMs: num(process.env.ROSTER_TTL_MS, 5 * 60 * 1000),
 

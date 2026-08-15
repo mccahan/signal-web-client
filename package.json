@@ -1,0 +1,19 @@
+{
+  "name": "signal-web-client",
+  "version": "1.0.0",
+  "description": "A browser-friendly Signal messenger client backed by signal-cli-rest-api",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/index.js",
+    "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
+    "icons": "node scripts/make-icons.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

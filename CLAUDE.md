@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm start          # run the server (http://localhost:8080)
 npm run dev        # same, with --watch
+./scripts/smoke-test.sh <image>   # boot a built image and verify it works
 npm run icons      # regenerate public/icons/* (rarely needed; PNGs are committed)
 
 docker compose up -d --build
@@ -14,9 +15,12 @@ docker build -t signal-web-client . && docker run -p 8080:8080 \
   -e SIGNAL_API_URL=http://<host>:8095 -v signal-web-data:/data signal-web-client
 ```
 
-Node 22.5+ is required — storage uses the built-in `node:sqlite`, so there are no
-native modules. `--no-warnings=ExperimentalWarning` in the npm scripts only
-silences the `node:sqlite` experimental notice.
+Node 26+ is required (`nvm use 26`) — storage uses the built-in `node:sqlite`,
+so there are no native modules. `node:sqlite` is **stable as of Node 26**; on
+Node 24 and earlier it was experimental and warned on every start, which is why
+older revisions of this repo passed `--no-warnings=ExperimentalWarning`. Do not
+reintroduce that flag: it would also hide warnings for any *other* experimental
+API someone adds later.
 
 The frontend has **no build step**. `public/` is served as-is and the browser
 loads the ES modules directly; editing `public/js/*.js` needs only a reload.
@@ -142,6 +146,10 @@ receipt per sender.
 - **Group update events re-sync the roster and diff membership** before writing
   their text, because the envelope says only "something changed" and carries no
   diff. That is how "X left the group" is distinguished from "X was removed".
+- **The runtime base is a moving tag.** The image runs on Chainguard's Node
+  base, whose free tier publishes only `:latest`, so CI smoke-tests the built
+  image before publishing. If that step fails after a base bump, the base moved
+  under us — check `node:sqlite` first.
 - **Back up `data/backups/`, never `data/signal-web.db`.** The live database is
   WAL-mode; `backup.js` writes integrity-checked snapshots and keeps `latest.db`
   hard-linked to the newest.

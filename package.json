@@ -5,11 +5,11 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=26.0.0"
   },
   "scripts": {
-    "start": "node --no-warnings=ExperimentalWarning server/index.js",
-    "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
     "icons": "node scripts/make-icons.js"
   },
   "dependencies": {

@@ -45,7 +45,25 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
-      - uses: docker/build-push-action@v6
+      # The runtime base is a moving tag, so prove the built image still works
+      # before publishing it. Built for the runner's own architecture and loaded
+      # locally, which is the only way to actually run it here.
+      - name: Build for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: signal-web-client:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh signal-web-client:smoke
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64

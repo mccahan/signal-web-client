@@ -24,8 +24,10 @@ npm install
 npm start                  # http://localhost:8080
 ```
 
-Node 22.5+ is required (the app uses the built-in `node:sqlite`). There is no
-frontend build step — the browser loads the ES modules in `public/` directly.
+Node 26+ is required. Storage uses the built-in `node:sqlite`, which is stable
+as of Node 26 (it was experimental, and warned on every start, through Node 24).
+There is no frontend build step — the browser loads the ES modules in `public/`
+directly.
 
 ## Docker
 
@@ -48,6 +50,13 @@ keep your history across upgrades.
 
 `docker-compose.yml` also contains a commented-out `signal-cli-rest-api` service
 if you'd rather run the whole stack together.
+
+The published image runs on Chainguard's minimal, non-root Node base, which is
+maintained at zero known CVEs and ships no shell-accessible package manager.
+Because its free tier publishes only a moving `:latest`, CI boots the built
+image and exercises `node:sqlite` and the HTTP surface before publishing, so a
+breaking base-image bump fails the build rather than the deployment
+(`scripts/smoke-test.sh`, runnable locally against any tag).
 
 ### Prebuilt images (NAS, Portainer, anywhere)
 

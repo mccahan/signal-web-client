@@ -49,6 +49,13 @@ export const config = {
   // How long to trust the cached contact/group roster before refreshing.
   rosterTtlMs: num(process.env.ROSTER_TTL_MS, 5 * 60 * 1000),
 
+  // Periodic consistent snapshots of the database. The live file is in WAL
+  // mode and unsafe for an external backup job to copy; these are not.
+  backupEnabled: bool(process.env.BACKUP_ENABLED, true),
+  backupDir: path.resolve(process.env.BACKUP_DIR || path.join(dataDir, 'backups')),
+  backupIntervalHours: num(process.env.BACKUP_INTERVAL_HOURS, 6),
+  backupKeep: num(process.env.BACKUP_KEEP, 7),
+
   logLevel: process.env.LOG_LEVEL || 'info',
 };
 

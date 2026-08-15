@@ -65,6 +65,10 @@ if you'd rather run the whole stack together.
 | `RECEIVE_TIMEOUT` | `1` | Poll window while a browser is connected (seconds) |
 | `IDLE_RECEIVE_TIMEOUT` | `5` | Poll window when nobody is connected |
 | `MAX_UPLOAD_BYTES` | `104857600` | Outgoing attachment cap |
+| `BACKUP_ENABLED` | `true` | Periodic database snapshots |
+| `BACKUP_INTERVAL_HOURS` | `6` | How often to snapshot |
+| `BACKUP_KEEP` | `7` | Snapshots to retain |
+| `BACKUP_DIR` | `<DATA_DIR>/backups` | Where snapshots are written |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info`, `debug` |
 
 ## How it works
@@ -124,6 +128,15 @@ can't be established.
   in leaves it first. Note that signal-cli keeps listing groups even after
   `DELETE /v1/groups` succeeds, which is why the thread is hidden rather than
   dropped — otherwise the next roster sync would recreate it.
+- **Back up the snapshots, not the live database.** `data/signal-web.db` runs
+  in WAL mode: copying it alone misses whatever is still in `-wal`, and a copy
+  taken mid-checkpoint can be torn. The app writes a consistent, self-contained
+  snapshot to `data/backups/` every few hours and keeps `latest.db` pointing at
+  the newest one, so point your backup job at that directory (or just
+  `latest.db`) and it will never read a locked or partial file. Snapshots are
+  written under a temporary name and renamed into place, and each is
+  integrity-checked before it is published. `POST /api/backups` takes one
+  immediately; `GET /api/backups` reports the last result.
 - **History starts when this app does.** It can only store what it receives from
   the moment it first runs; there's no backfill of older Signal history.
 
@@ -138,6 +151,7 @@ server/
   store.js       SQLite domain layer and identity resolution
   outbound.js    sending, reactions, read receipts, typing
   routes/api.js  REST API and the media/avatar proxy
+  backup.js      periodic consistent SQLite snapshots
 public/
   js/app.js      UI: conversation list, thread, composer
   js/format.js   names, timestamps, mentions and rich-text rendering

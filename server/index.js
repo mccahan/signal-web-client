@@ -11,6 +11,7 @@ import { bus } from './bus.js';
 import { router as apiRouter } from './routes/api.js';
 import { startReceiver, publicStatus } from './receiver.js';
 import { startRosterLoop, resolveSelfIdentity } from './roster.js';
+import { startBackupLoop } from './backup.js';
 import { setSelf, self, listConversations } from './store.js';
 import { isAuthed, authEnabled } from './auth.js';
 
@@ -181,6 +182,10 @@ async function main() {
       resolve();
     });
   });
+
+  // Independent of the Signal link: history is worth protecting even while the
+  // upstream API is unreachable.
+  startBackupLoop();
 
   connectSignal();
 }

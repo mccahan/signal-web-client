@@ -35,6 +35,7 @@ import {
   deleteConversation,
 } from '../outbound.js';
 import { cacheAttachment } from '../media.js';
+import { runBackup, backupState } from '../backup.js';
 import {
   authEnabled,
   checkPassword,
@@ -89,6 +90,17 @@ router.get('/me', (req, res) => {
 });
 
 router.get('/status', (req, res) => res.json(publicStatus()));
+
+router.get('/backups', (req, res) => res.json({ ...backupState, dir: config.backupDir }));
+
+/** Take a snapshot now, for testing the backup path without waiting. */
+router.post(
+  '/backups',
+  wrap(async (req, res) => {
+    const file = await runBackup({ reason: 'manual' });
+    res.json({ path: file, ...backupState });
+  })
+);
 
 router.get(
   '/conversations',

@@ -45,11 +45,12 @@ export function sessionIdFromToken(token) {
 
 export function checkPassword(candidate) {
   if (!authEnabled) return true;
-  const a = Buffer.from(String(candidate ?? ''));
-  const b = Buffer.from(config.password);
-  // Hash both sides so the compare is length-independent.
-  const ha = crypto.createHash('sha256').update(a).digest();
-  const hb = crypto.createHash('sha256').update(b).digest();
+  // Use scrypt so the comparison uses a work-hardened KDF that resists
+  // offline brute-force if the config value is ever exposed. The deployment
+  // SECRET provides a per-instance salt so pre-computation is impractical.
+  const salt = Buffer.from(SECRET).subarray(0, 16);
+  const ha = crypto.scryptSync(String(candidate ?? ''), salt, 32);
+  const hb = crypto.scryptSync(config.password, salt, 32);
   return crypto.timingSafeEqual(ha, hb);
 }
 

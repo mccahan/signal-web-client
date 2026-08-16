@@ -3,6 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { rateLimit } from 'express-rate-limit';
 
 import { config } from './config.js';
 import { log } from './log.js';
@@ -44,7 +45,8 @@ app.use(
 );
 
 // SPA fallback for anything that isn't an API call.
-app.get('*', (req, res, next) => {
+const spaLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
+app.get('*', spaLimiter, (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(publicDir, 'index.html'));
 });

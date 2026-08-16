@@ -28,7 +28,8 @@ import {
   clearConversation,
 } from './store.js';
 
-const DATA_URI = /^data:([^;,]+)?(?:;[^,]*)*?(?:;filename=([^;,]+))?[^,]*,(.*)$/s;
+const DATA_URI = /^data:([^;,]+)?(?:;[^;,]*)*,(.*)$/s;
+const FILENAME_PARAM_RE = /(?:^|;)filename=([^;,]+)/;
 
 /**
  * The provisional timestamp doubles as the dedup key
@@ -126,8 +127,8 @@ export async function sendMessage({
   for (const att of attachments) {
     const m = typeof att === 'string' ? att.match(DATA_URI) : null;
     const contentType = (m ? m[1] : att.contentType) || 'application/octet-stream';
-    const filename = (m ? m[2] : att.filename) || '';
-    const data = m ? m[3] : att.data;
+    let filename = m ? att.slice(5, att.indexOf(',')).match(FILENAME_PARAM_RE)?.[1] ?? '' : (att.filename || '');
+    const data = m ? m[2] : att.data;
     if (!data) continue;
 
     if (Buffer.byteLength(data, 'base64') > config.maxUploadBytes) {

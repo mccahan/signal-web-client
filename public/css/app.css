@@ -450,7 +450,11 @@ button, input, textarea { font: inherit; color: inherit; }
 
 .tick { display: inline-flex; }
 .tick svg { display: block; }
-.tick--read { color: #8fd0ff; }
+/* `read` is solid discs; the check is knocked out in the colour behind them so
+   it reads as filled rather than as a heavier outline. Ticks only ever appear
+   on outgoing bubbles, so that colour is the outgoing bubble's. */
+.tick--read { color: #cfe4ff; }
+.tick--read .tick__knock { stroke: var(--bubble-out); }
 
 .quote-box {
   display: flex; gap: 8px;
@@ -540,13 +544,39 @@ button, input, textarea { font: inherit; color: inherit; }
   box-shadow: var(--shadow);
   color: var(--ink);
 }
+/* With unread messages below the fold the whole control turns accent-coloured.
+   A small blue badge on a near-black panel is only ~4:1 against its background
+   and reads as decoration; recolouring the button makes the target itself the
+   signal, which is what you actually catch out of the corner of your eye. */
+.scroll-down--unread .icon-btn {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-ink);
+  box-shadow: 0 4px 18px rgba(58, 118, 240, .55);
+}
 .scroll-down__badge {
-  position: absolute; top: -6px; right: -4px;
-  min-width: 18px; height: 18px; padding: 0 5px;
+  position: absolute; top: -7px; right: -6px;
+  min-width: 20px; height: 20px; padding: 0 6px;
   border-radius: 999px;
-  background: var(--accent); color: #fff;
-  font-size: 11px; font-weight: 650;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 12px; font-weight: 700;
   display: grid; place-items: center;
+  /* Ring in the page colour so the badge stays legible where it overlaps the
+     button rather than merging into it. */
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.scroll-down--unread .scroll-down__badge {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
+/* One gentle pulse on arrival, then still. Respects reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-down--unread .icon-btn { animation: scroll-down-pop .45s ease-out 1; }
+}
+@keyframes scroll-down-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.14); }
+  100% { transform: scale(1); }
 }
 
 /* --- composer ------------------------------------------------------------ */

@@ -659,24 +659,56 @@ function buildMeta(msg, out) {
   return meta;
 }
 
+/**
+ * Delivery status, drawn the way Signal itself draws it: circled checks that
+ * differ by *fill*, not by colour.
+ *
+ * The previous version used one double-check glyph for both `delivered` and
+ * `read` and distinguished them with colour alone — 1.22:1 apart once the
+ * translucent white composited over the blue bubble, against the 3:1 a UI
+ * component needs to read as distinct. The status was correct and invisible.
+ * Outline versus solid survives small sizes, colour blindness and the bubble
+ * tint underneath.
+ */
 function buildTick(status) {
   const wrap = el('span', 'tick');
-  if (status === 'read') wrap.classList.add('tick--read');
 
-  const svg = (d) =>
-    `<svg viewBox="0 0 20 16" width="16" height="12" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+  const open = (extra = '') =>
+    `<svg viewBox="0 0 22 14" width="18" height="12" aria-hidden="true" ${extra}>`;
+  // Two overlapping rings; the trailing one carries the check.
+  const ring = (cx, fill) =>
+    `<circle cx="${cx}" cy="7" r="5.1" ${
+      fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.5"'
+    }/>`;
+  const check = (cx, knock) =>
+    `<path class="${knock ? 'tick__knock' : ''}" d="M${cx - 2.4} 7.1 ${cx - 0.6} 8.9 ${cx + 2.6} 5.1"` +
+    ` fill="none" stroke="${knock ? 'currentColor' : 'currentColor'}" stroke-width="1.6"` +
+    ' stroke-linecap="round" stroke-linejoin="round"/>';
 
   if (status === 'pending') {
-    wrap.innerHTML = svg('M10 2a6 6 0 1 0 0 12A6 6 0 0 0 10 2Zm0 1.5A4.5 4.5 0 1 1 10 12.5 4.5 4.5 0 0 1 10 3.5Zm-.6 1.4v3.4l2.6 1.6.6-1-2-1.2V4.9h-1.2Z');
+    wrap.innerHTML =
+      open() +
+      '<circle cx="11" cy="7" r="5.1" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M11 4.2V7.3l2 1.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+      '</svg>';
     wrap.title = 'Sending…';
   } else if (status === 'failed') {
-    wrap.innerHTML = svg('M9.2 2h1.6v7H9.2V2Zm0 9h1.6v1.8H9.2V11Z');
+    wrap.innerHTML =
+      open() +
+      '<circle cx="11" cy="7" r="5.1" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M11 3.9v3.6M11 9.6v1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' +
+      '</svg>';
     wrap.title = 'Failed to send';
-  } else if (status === 'delivered' || status === 'read') {
-    wrap.innerHTML = svg('M6.6 12.4 2.2 8l1.1-1.1 3.3 3.3 7-7L14.7 4.3l-8.1 8.1Zm5 0L7.2 8l1.1-1.1 3.3 3.3 7-7 1.1 1.1-8.1 8.1Z');
-    wrap.title = status === 'read' ? 'Read' : 'Delivered';
+  } else if (status === 'read') {
+    // Solid discs with the check knocked out — the unmistakable state.
+    wrap.classList.add('tick--read');
+    wrap.innerHTML = open() + ring(6.4, true) + ring(14.2, true) + check(14.2, true) + '</svg>';
+    wrap.title = 'Read';
+  } else if (status === 'delivered') {
+    wrap.innerHTML = open() + ring(6.4, false) + ring(14.2, false) + check(14.2, false) + '</svg>';
+    wrap.title = 'Delivered';
   } else {
-    wrap.innerHTML = svg('M6.6 12.4 2.2 8l1.1-1.1 3.3 3.3 7-7L14.7 4.3l-8.1 8.1Z');
+    wrap.innerHTML = open() + ring(11, false) + check(11, false) + '</svg>';
     wrap.title = 'Sent';
   }
   return wrap;
@@ -1192,8 +1224,11 @@ function scrollToBottom(behavior = 'auto') {
 function updateScrollBadge() {
   $('scroll-down').hidden = state.stickToBottom;
   const badge = $('scroll-badge');
-  badge.hidden = state.missedWhileScrolled === 0;
-  badge.textContent = String(state.missedWhileScrolled);
+  const missed = state.missedWhileScrolled;
+  badge.hidden = missed === 0;
+  badge.textContent = String(missed);
+  // Drives the accent treatment on the button itself, not just the badge.
+  $('scroll-down').classList.toggle('scroll-down--unread', missed > 0);
 }
 
 let readTimer = null;

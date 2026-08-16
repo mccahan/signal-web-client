@@ -47,11 +47,10 @@ export function checkPassword(candidate) {
   if (!authEnabled) return true;
   const a = Buffer.from(String(candidate ?? ''));
   const b = Buffer.from(config.password);
-  // Use HMAC with a fixed key to produce equal-length digests for a
+  // Use HMAC with the deployment secret to produce equal-length digests for a
   // timing-safe comparison that does not expose length information.
-  const key = Buffer.alloc(32);
-  const ha = crypto.createHmac('sha256', key).update(a).digest();
-  const hb = crypto.createHmac('sha256', key).update(b).digest();
+  const ha = crypto.createHmac('sha256', SECRET).update(a).digest();
+  const hb = crypto.createHmac('sha256', SECRET).update(b).digest();
   return crypto.timingSafeEqual(ha, hb);
 }
 

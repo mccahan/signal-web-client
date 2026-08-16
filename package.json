@@ -13,7 +13,7 @@
     "icons": "node scripts/make-icons.js"
   },
   "dependencies": {
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "ws": "^8.18.0"
   }

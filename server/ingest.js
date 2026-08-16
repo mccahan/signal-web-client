@@ -421,6 +421,14 @@ export function ingestEnvelope(item) {
   if (envelope.receiptMessage) {
     const r = envelope.receiptMessage;
     const status = r.isViewed ? 'read' : r.isRead ? 'read' : r.isDelivery ? 'delivered' : null;
+    // Receipts are the one envelope whose effect is invisible in the UI beyond
+    // a tick changing colour, so log enough to tell a real acknowledgement
+    // from a misread flag without having to reproduce it live.
+    log.debug(
+      `receipt from ${envelope.sourceNumber || envelope.sourceUuid || envelope.source || '?'}: ` +
+        `delivery=${!!r.isDelivery} read=${!!r.isRead} viewed=${!!r.isViewed} ` +
+        `-> ${status || 'ignored'} for ts ${JSON.stringify(r.timestamps || [])}`
+    );
     if (status) {
       const touched = applyReceipt({ timestamps: r.timestamps || [], status });
       for (const m of touched) publishMessageUpdate(m, 'receipt');

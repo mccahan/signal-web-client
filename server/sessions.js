@@ -55,7 +55,11 @@ export function touchSession(id, { ip } = {}) {
   if (!s) return;
   const now = Date.now();
   if (now - s.last_seen_at < TOUCH_INTERVAL_MS && (!ip || ip === s.ip)) return;
-  db.prepare('UPDATE sessions SET last_seen_at = ?, ip = COALESCE(NULLIF(?, ""), ip) WHERE id = ?').run(
+  // Single quotes: node:sqlite parses a double-quoted token as an identifier,
+  // so NULLIF(?, "") raises `no such column: ""` rather than comparing to an
+  // empty string. Only reachable once a session is touched from a new IP after
+  // TOUCH_INTERVAL_MS, which is why it hid until a phone changed network.
+  db.prepare("UPDATE sessions SET last_seen_at = ?, ip = COALESCE(NULLIF(?, ''), ip) WHERE id = ?").run(
     now,
     ip || '',
     id

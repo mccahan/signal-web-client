@@ -45,12 +45,12 @@ export function sessionIdFromToken(token) {
 
 export function checkPassword(candidate) {
   if (!authEnabled) return true;
-  const a = Buffer.from(String(candidate ?? ''));
-  const b = Buffer.from(config.password);
-  // Use HMAC with the deployment secret to produce equal-length digests for a
-  // timing-safe comparison that does not expose length information.
-  const ha = crypto.createHmac('sha256', SECRET).update(a).digest();
-  const hb = crypto.createHmac('sha256', SECRET).update(b).digest();
+  // Use scrypt so the comparison uses a work-hardened KDF that resists
+  // offline brute-force if the config value is ever exposed. The deployment
+  // SECRET provides a per-instance salt so pre-computation is impractical.
+  const salt = Buffer.from(SECRET).subarray(0, 16);
+  const ha = crypto.scryptSync(String(candidate ?? ''), salt, 32);
+  const hb = crypto.scryptSync(config.password, salt, 32);
   return crypto.timingSafeEqual(ha, hb);
 }
 

@@ -153,10 +153,19 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* --- app shell ----------------------------------------------------------- */
 
+/* Pinned to the viewport rather than sized with a viewport unit.
+   In an iOS home-screen app, 100dvh does not reliably resolve to the full
+   screen — it came up short by roughly the bottom inset, leaving a band of
+   page background below the composer. `inset: 0` is defined by the layout
+   viewport, which with viewport-fit=cover spans the whole screen including
+   the safe areas, so it cannot fall short. The insets are still honoured as
+   padding inside (see .composer and .sidebar), which is what keeps content
+   clear of the home indicator while the panel behind it reaches the edge. */
 .app {
+  position: fixed;
+  inset: 0;
   display: grid;
   grid-template-columns: minmax(300px, 360px) 1fr;
-  height: 100dvh;
   background: var(--bg);
 }
 
@@ -535,7 +544,9 @@ button, input, textarea { font: inherit; color: inherit; }
 /* jump-to-latest */
 .scroll-down {
   position: absolute;
-  right: 16px; bottom: 92px;
+  /* The composer grows by the bottom inset on a device with a home indicator,
+     so a fixed offset would slide these controls down behind it. */
+  right: 16px; bottom: calc(92px + var(--safe-bottom));
   z-index: 5;
 }
 .scroll-down .icon-btn {
@@ -585,7 +596,7 @@ button, input, textarea { font: inherit; color: inherit; }
    than joining it — two controls doing the same thing is worse than one. */
 .new-messages {
   position: absolute;
-  left: 50%; bottom: 92px;
+  left: 50%; bottom: calc(92px + var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 6;
   display: inline-flex; align-items: center; gap: 7px;
@@ -857,8 +868,8 @@ button, input, textarea { font: inherit; color: inherit; }
   .thread__back { display: grid; }
 
   .bubble-wrap { max-width: 84%; }
-  .scroll-down { bottom: 84px; }
-  .new-messages { bottom: 84px; }
+  .scroll-down { bottom: calc(84px + var(--safe-bottom)); }
+  .new-messages { bottom: calc(84px + var(--safe-bottom)); }
 }
 
 @media (min-width: 821px) {

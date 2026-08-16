@@ -42,7 +42,10 @@ export function cacheAttachment(id) {
 
     const fetched = await api.attachment(id);
     const contentType = record?.content_type || fetched.contentType || 'application/octet-stream';
-    const localPath = path.join(config.mediaDir, localName(id, contentType, record?.filename));
+    const localPath = path.resolve(config.mediaDir, localName(id, contentType, record?.filename));
+    if (!localPath.startsWith(path.resolve(config.mediaDir) + path.sep)) {
+      throw Object.assign(new Error('attachment path escapes media directory'), { status: 400 });
+    }
 
     await fs.writeFile(localPath, fetched.buffer);
     setAttachmentPath(id, localPath, contentType);

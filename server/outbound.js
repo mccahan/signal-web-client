@@ -28,7 +28,7 @@ import {
   clearConversation,
 } from './store.js';
 
-const DATA_URI = /^data:([^;,]+)?(?:;[^,]*)*?(?:;filename=([^;,]+))?[^,]*,(.*)$/s;
+const DATA_URI = /^data:([^;,]+)?(?:;(?:filename=([^;,]+)|[^;,]*))*,(.*)$/s;
 
 /**
  * The provisional timestamp doubles as the dedup key

@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { rateLimit } from 'express-rate-limit';
 import { config } from '../config.js';
 import { log } from '../log.js';
 import { api } from '../signal-api.js';
@@ -63,13 +64,19 @@ export const router = express.Router();
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+// Rate limiter for authentication endpoints (strict).
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+
+// Rate limiter for media/file-serving endpoints.
+const mediaLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
+
 // --- session ---------------------------------------------------------------
 
 router.get('/session', (req, res) => {
   res.json({ authRequired: authEnabled, authenticated: isAuthed(req) });
 });
 
-router.post('/session', (req, res) => {
+router.post('/session', authLimiter, (req, res) => {
   if (!authEnabled) return res.json({ authenticated: true });
   if (!checkPassword(req.body?.password)) {
     return res.status(401).json({ error: 'Incorrect password' });
@@ -477,6 +484,14 @@ router.get(
 );
 
 function streamFile(res, filePath, contentType, filename, download) {
+  // Ensure the resolved path stays within the media directory.
+  const resolvedPath = path.resolve(filePath);
+  const mediaRoot = path.resolve(config.mediaDir);
+  if (!resolvedPath.startsWith(mediaRoot + path.sep) && resolvedPath !== mediaRoot) {
+    res.status(403).end();
+    return;
+  }
+
   res.setHeader('Content-Type', contentType || 'application/octet-stream');
   res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
   // This Content-Type came from whoever sent the file, so the response is
@@ -507,12 +522,17 @@ function streamFile(res, filePath, contentType, filename, download) {
 /** Avatars for the conversation list. Cached to disk with a short TTL. */
 router.get(
   '/avatars/:conversationId',
+  mediaLimiter,
   wrap(async (req, res) => {
     const conv = getConversation(req.params.conversationId);
     if (!conv) return res.status(404).end();
 
     const key = `avatar_${req.params.conversationId.replace(/[^\w.-]/g, '_')}`;
-    const cachePath = path.join(config.mediaDir, key);
+    const cachePath = path.resolve(config.mediaDir, key);
+    const mediaRoot = path.resolve(config.mediaDir);
+    if (!cachePath.startsWith(mediaRoot + path.sep)) {
+      return res.status(400).end();
+    }
     const metaPath = `${cachePath}.json`;
 
     try {

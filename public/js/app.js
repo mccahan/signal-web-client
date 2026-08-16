@@ -500,6 +500,31 @@ async function openConversation(id, { keepScroll = false } = {}) {
   }
 
   if (conv.unread > 0) markReadSoon(id);
+  if (switching) focusComposer();
+}
+
+/**
+ * Put the cursor in the composer when a conversation is opened.
+ *
+ * Skipped on the single-pane (phone) layout: there, focusing a textarea
+ * summons the on-screen keyboard, which would cover the messages you just
+ * opened the thread to read. On the two-pane layout the keyboard is physical
+ * and the focus is pure benefit.
+ */
+function focusComposer() {
+  if (!window.matchMedia('(min-width: 821px)').matches) return;
+  const input = $('input');
+  // After the render, so the element is visible and focus actually lands.
+  requestAnimationFrame(() => {
+    input.focus({ preventScroll: true });
+    // Cursor at the end of a restored draft rather than at the start.
+    const n = input.value.length;
+    try {
+      input.setSelectionRange(n, n);
+    } catch {
+      /* not all engines allow this on a hidden element */
+    }
+  });
 }
 
 function renderThreadHeader(conv) {
@@ -1222,13 +1247,24 @@ function scrollToBottom(behavior = 'auto') {
 }
 
 function updateScrollBadge() {
-  $('scroll-down').hidden = state.stickToBottom;
-  const badge = $('scroll-badge');
   const missed = state.missedWhileScrolled;
+  const scrolledUp = !state.stickToBottom;
+  // Only one of the two controls is ever up: the pill when something actually
+  // arrived, the bare arrow when you have merely scrolled back through history.
+  const showPill = scrolledUp && missed > 0;
+
+  $('scroll-down').hidden = !scrolledUp || showPill;
+  const badge = $('scroll-badge');
   badge.hidden = missed === 0;
   badge.textContent = String(missed);
-  // Drives the accent treatment on the button itself, not just the badge.
   $('scroll-down').classList.toggle('scroll-down--unread', missed > 0);
+
+  const pill = $('new-messages');
+  if (showPill) {
+    $('new-messages-text').textContent =
+      missed === 1 ? '1 new message' : `${missed} new messages`;
+  }
+  pill.hidden = !showPill;
 }
 
 let readTimer = null;
@@ -1415,6 +1451,7 @@ function wireUi() {
   });
 
   $('scroll-down').addEventListener('click', () => scrollToBottom('smooth'));
+  $('new-messages').addEventListener('click', () => scrollToBottom('smooth'));
   $('load-more').addEventListener('click', loadEarlier);
 
   $('btn-back').addEventListener('click', () => {

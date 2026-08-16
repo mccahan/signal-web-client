@@ -104,6 +104,13 @@
         <span class="scroll-down__badge" id="scroll-badge" hidden></span>
       </div>
 
+      <!-- Shown instead of the corner arrow when messages arrived below the
+           fold: centred, labelled, and hard to miss. -->
+      <button class="new-messages" id="new-messages" type="button" hidden>
+        <span id="new-messages-text">New messages</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="m12 16-6-6 1.4-1.4L12 13.2l4.6-4.6L18 10l-6 6Z"/></svg>
+      </button>
+
       <div class="composer" id="composer">
         <div class="composer__reply" id="composer-reply" hidden>
           <div class="composer__reply-bar"></div>

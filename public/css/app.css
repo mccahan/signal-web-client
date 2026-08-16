@@ -579,6 +579,43 @@ button, input, textarea { font: inherit; color: inherit; }
   100% { transform: scale(1); }
 }
 
+/* --- "N new messages" pill ------------------------------------------------
+   A corner arrow has to be looked for; this sits in the reading path, says
+   how many arrived, and names the action. It replaces the corner arrow rather
+   than joining it — two controls doing the same thing is worse than one. */
+.new-messages {
+  position: absolute;
+  left: 50%; bottom: 92px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex; align-items: center; gap: 7px;
+  max-width: calc(100% - 32px);
+  padding: 9px 15px;
+  border: 0; border-radius: 999px;
+  /* Deliberately NOT the accent colour: outgoing bubbles are already accent,
+     and this floats directly over them, so an accent pill camouflages against
+     the very content it sits on. Inverting against the page keeps it distinct
+     from both the background and the bubbles, in either theme. */
+  background: var(--ink); color: var(--bg);
+  font-family: inherit; font-size: 13px; font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  /* The ring separates it from whatever bubble it happens to overlap. */
+  box-shadow: 0 0 0 2px var(--bg), 0 10px 24px rgba(0, 0, 0, .45);
+}
+.new-messages:hover { filter: brightness(1.06); }
+.new-messages:active { transform: translateX(-50%) scale(.97); }
+.new-messages svg { display: block; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .new-messages { animation: new-messages-in .28s cubic-bezier(.2, .9, .3, 1.2) 1; }
+}
+@keyframes new-messages-in {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(.94); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
 /* --- composer ------------------------------------------------------------ */
 
 .composer {
@@ -821,6 +858,7 @@ button, input, textarea { font: inherit; color: inherit; }
 
   .bubble-wrap { max-width: 84%; }
   .scroll-down { bottom: 84px; }
+  .new-messages { bottom: 84px; }
 }
 
 @media (min-width: 821px) {
